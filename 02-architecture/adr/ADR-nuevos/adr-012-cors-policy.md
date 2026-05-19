@@ -2,13 +2,15 @@
 
 ## Estado
 
-Propuesto - 2026-05-02
+Aceptado - Martes, 19 de mayo 2026
 
 ---
 
 # Contexto
 
-El backend y el frontend pueden ejecutarse en origenes distintos durante desarrollo local. En el codigo actual, la politica CORS observada es permisiva:
+El backend y el frontend pueden ejecutarse en origenes distintos durante desarrollo local.
+
+Antes de esta implementacion, la politica CORS observada era permisiva:
 
 * `SpringSecurityConfig` permite `allowedOrigins("*")`
 * los controladores revisados usan `@CrossOrigin(origins = "*")`
@@ -29,24 +31,22 @@ Sin una politica CORS documentada y controlada por ambiente:
 
 # Decision Arquitectonica
 
-Propuesta futura.
-
 Se propone definir una politica CORS explicita y parametrizable por ambiente:
 
 * desarrollo local: permitir solo los origenes necesarios del frontend local
 * despliegues same-origin: reducir o eliminar la necesidad de CORS si frontend y backend comparten dominio publico
 * otros despliegues: permitir solo origenes explicitamente aprobados
 
-No debe afirmarse que esta politica restrictiva ya existe en el proyecto actual.
+La implementacion adoptada centraliza CORS en `SpringSecurityConfig`, elimina `@CrossOrigin(origins = "*")` de los controladores y externaliza la lista de origenes permitidos mediante propiedad de aplicacion.
 
 ---
 
 # Stack tecnologico
 
-| Elemento | Estado actual | Propuesta futura |
+| Elemento | Estado actual | Implementacion adoptada |
 |---|---|---|
-| CORS en seguridad | `allowedOrigins("*")` | Lista explicita por ambiente |
-| CORS en controladores | `@CrossOrigin(origins = "*")` | Uso consistente y restringido o centralizado |
+| CORS en seguridad | Configuracion centralizada | Lista explicita por ambiente |
+| CORS en controladores | Sin `@CrossOrigin(origins = "*")` | Uso centralizado |
 | Despliegue frontend/backend | Local con origenes distintos; futuro same-origin posible | Configuracion segun ambiente |
 
 ---
@@ -102,16 +102,19 @@ Frontend publico -> /api/* -> Backend
 
 # Evidencia
 
-* `backend-unab-master/src/main/java/com/backend/unab/auth/SpringSecurityConfig.java`
-* `backend-unab-master/src/main/java/com/backend/unab/controllers/AuthRestController.java`
-* `backend-unab-master/src/main/java/com/backend/unab/controllers/CustomerRestController.java`
-* `README-DOCKER.md`
-* `frontend-unab-master/README.md`
+* `veterinary-system-api/src/main/java/com/backend/unab/auth/SpringSecurityConfig.java`
+* `veterinary-system-api/src/main/java/com/backend/unab/controllers/AuthRestController.java`
+* `veterinary-system-api/src/main/java/com/backend/unab/controllers/CustomerRestController.java`
+* `veterinary-system-api/src/main/resources/application.properties`
+* `veterinary-system-api/docker-compose.yml`
+* `veterinary-system-portal/nginx/default.conf`
+* `veterinary-system-portal/src/app/utils/api-url.ts`
 
 ---
 
 # Validacion
 
-* Confirmar que el estado actual es permisivo en `SpringSecurityConfig.java`
-* Confirmar si los controladores siguen usando `@CrossOrigin(origins = "*")`
-* Requiere validacion antes de implementacion sobre los ambientes reales que deban soportarse
+* Confirmar que `SpringSecurityConfig.java` ya no use `allowedOrigins("*")`
+* Confirmar que los controladores ya no usen `@CrossOrigin(origins = "*")`
+* Confirmar que los origenes permitidos se definan por propiedad `app.cors.allowed-origins`
+* Validar que el portal local siga operando desde `http://localhost:3000`
