@@ -10,7 +10,9 @@ Propuesto - 2026-05-02
 
 El sistema usa HTTP Basic Authentication. En ese mecanismo las credenciales se transportan en Base64, por lo que requieren un canal cifrado para no quedar expuestas durante el trafico real.
 
-El despliegue actual documentado en el repositorio es local con Docker Compose, frontend por HTTP y backend por HTTP. No hay configuracion TLS implementada en el proyecto actual.
+El despliegue base documentado en el repositorio es local con Docker Compose, frontend por HTTP y backend por HTTP.
+
+Adicionalmente, existe una validacion local aislada con certificado autofirmado para probar terminacion TLS en `Nginx`, pero esa configuracion no representa el despliegue objetivo en AWS ni debe asumirse como configuracion productiva por defecto.
 
 ---
 
@@ -36,6 +38,8 @@ Se propone exigir HTTPS para cualquier despliegue real del sistema y delegar la 
 
 No se define Nginx como unico terminador TLS.
 
+La validacion local con certificado autofirmado se acepta solo como mecanismo de prueba tecnica del ADR. Debe mantenerse separada de la configuracion base para no acoplar el proyecto a `localhost`, puertos locales o certificados no confiables al momento de desplegar en AWS.
+
 Esta decision no responde a un requerimiento academico explicito, sino a una decision tecnica del proyecto orientada a reducir costos operativos al momento de desplegar en AWS.
 
 ---
@@ -46,6 +50,7 @@ Esta decision no responde a un requerimiento academico explicito, sino a una dec
 |---|---|---|
 | Autenticacion | HTTP Basic | HTTP Basic protegido por HTTPS |
 | Frontend local | Angular servido con Nginx por HTTP | Sin cambio local obligatorio |
+| Validacion local TLS | Override aislado con certificado autofirmado | Solo para pruebas tecnicas del ADR |
 | Entrada productiva | No confirmada en el proyecto actual | CloudFront, ALB, API Gateway o Nginx segun entorno |
 
 ---
@@ -104,21 +109,25 @@ Frontend y/o backend segun arquitectura del despliegue
 
 **Seguridad:** Es una mejora prioritaria mientras se mantenga HTTP Basic.
 
+**Operacion local:** Cualquier validacion con certificado autofirmado debe vivir en archivos separados o perfiles locales, nunca como configuracion base de despliegue.
+
 ---
 
 # Evidencia
 
-* `backend-unab-master/src/main/java/com/backend/unab/auth/SpringSecurityConfig.java`
-* `backend-unab-master/src/main/java/com/backend/unab/controllers/AuthRestController.java`
-* `frontend-unab-master/nginx/default.conf`
-* `docker-compose.yml`
-* `README-DOCKER.md`
-* `frontend-unab-master/README.md`
+* `veterinary-system-api/src/main/java/com/backend/unab/auth/SpringSecurityConfig.java`
+* `veterinary-system-api/src/main/java/com/backend/unab/controllers/AuthRestController.java`
+* `veterinary-system-portal/nginx/default.conf`
+* `veterinary-system-portal/nginx/default.local-ssl.conf`
+* `veterinary-system-portal/docker-compose.yml`
+* `veterinary-system-portal/docker-compose.local-https.yml`
+* `veterinary-system-portal/README.md`
 
 ---
 
 # Validacion
 
-* Confirmar que el proyecto actual no implementa TLS en el repositorio
+* Confirmar que la configuracion base del proyecto no dependa de certificados autofirmados ni de `localhost:3443`
 * Confirmar que HTTP Basic sigue siendo el mecanismo actual
+* Confirmar que cualquier prueba local de TLS viva en configuracion separada del despliegue base
 * Requiere validacion antes de implementacion sobre que punto de entrada asumira TLS en el entorno real
