@@ -1,8 +1,8 @@
-# ADR-011 - HTTPS obligatorio y terminacion TLS en despliegues reales
+# ADR-011 - HTTPS obligatorio y terminacion TLS desacoplada del despliegue base
 
 ## Estado
 
-Propuesto - 2026-05-02
+Aceptado - Miercoles, 20 de mayo 2026
 
 ---
 
@@ -10,64 +10,58 @@ Propuesto - 2026-05-02
 
 El sistema usa HTTP Basic Authentication. En ese mecanismo las credenciales se transportan en Base64, por lo que requieren un canal cifrado para no quedar expuestas durante el trafico real.
 
-El despliegue base documentado en el repositorio es local con Docker Compose, frontend por HTTP y backend por HTTP.
-
-Adicionalmente, existe una validacion local aislada con certificado autofirmado para probar terminacion TLS en `Nginx`, pero esa configuracion no representa el despliegue objetivo en AWS ni debe asumirse como configuracion productiva por defecto.
+El repositorio mantiene un despliegue base local con Docker Compose en HTTP para desarrollo cotidiano. Al mismo tiempo, el proyecto necesitaba validar tecnicamente la terminacion TLS sin contaminar esa configuracion base con certificados autofirmados, puertos locales fijos o reglas de redireccion no aptas como configuracion por defecto.
 
 ---
 
 # Problema
 
-Sin HTTPS en despliegues reales:
+Sin una separacion clara entre despliegue base y validacion TLS:
 
-* las credenciales HTTP Basic pueden ser capturadas en transito
-* los datos del sistema viajan sin cifrado
-* se debilita la postura minima de seguridad del proyecto
+* las credenciales HTTP Basic quedan expuestas si se reutiliza HTTP en trafico real
+* una prueba local con certificados autofirmados puede terminar acoplada a la configuracion principal del proyecto
+* se incrementa el riesgo de arrastrar `localhost`, puertos locales o certificados no confiables a futuros despliegues
 
 ---
 
 # Decision Arquitectonica
 
-Propuesta futura.
+Decision adoptada.
 
-Se propone exigir HTTPS para cualquier despliegue real del sistema y delegar la terminacion TLS en el punto de entrada que resulte adecuado para el entorno:
+Se adopta la siguiente estrategia:
 
-* CloudFront, si el frontend se publica como sitio estatico en AWS
-* ALB o API Gateway, si la infraestructura futura lo requiere
-* Nginx, solo si se usa un despliegue contenedorizado con proxy frontal
+* el despliegue base del portal permanece en HTTP para desarrollo local
+* cualquier validacion local de TLS debe vivir en archivos separados del despliegue base
+* la terminacion TLS se considera una responsabilidad del punto de entrada del entorno real, no del `docker-compose.yml` base del portal
+* la configuracion autofirmada se acepta solo como mecanismo de prueba tecnica local del ADR
 
-No se define Nginx como unico terminador TLS.
+Con esta decision:
 
-La validacion local con certificado autofirmado se acepta solo como mecanismo de prueba tecnica del ADR. Debe mantenerse separada de la configuracion base para no acoplar el proyecto a `localhost`, puertos locales o certificados no confiables al momento de desplegar en AWS.
-
-Esta decision no responde a un requerimiento academico explicito, sino a una decision tecnica del proyecto orientada a reducir costos operativos al momento de desplegar en AWS.
+* el proyecto valida tecnicamente terminacion TLS sin forzarla como configuracion principal
+* el repositorio evita acoplar el despliegue base a `localhost`, `3443` o certificados no confiables
+* el portal queda preparado para que un entorno real provea HTTPS sin heredar defaults inseguros desde la configuracion local
 
 ---
 
 # Stack tecnologico
 
-| Elemento | Estado actual | Propuesta futura |
+| Elemento | Estado actual | Decision adoptada |
 |---|---|---|
-| Autenticacion | HTTP Basic | HTTP Basic protegido por HTTPS |
-| Frontend local | Angular servido con Nginx por HTTP | Sin cambio local obligatorio |
-| Validacion local TLS | Override aislado con certificado autofirmado | Solo para pruebas tecnicas del ADR |
-| Entrada productiva | No confirmada en el proyecto actual | CloudFront, ALB, API Gateway o Nginx segun entorno |
+| Autenticacion | HTTP Basic | HTTP Basic con requerimiento de canal cifrado fuera del modo base local |
+| Frontend local base | Angular servido con Nginx por HTTP | Sin TLS por defecto |
+| Validacion local TLS | Override aislado con certificado autofirmado | Solo para prueba tecnica |
+| Configuracion principal del portal | Docker Compose base + `default.conf` | Desacoplada de certificados y puertos TLS locales |
 
 ---
 
 # Diagrama del stack
 
 ```
-Usuario
-   |
-   | HTTPS
-   v
-Punto de entrada del entorno
-   |
-   +-- CloudFront / ALB / API Gateway / Nginx
-   |
-   v
-Frontend y/o backend segun arquitectura del despliegue
+Modo base local:
+Usuario -> HTTP -> Nginx local -> Frontend + proxy /api/*
+
+Validacion local TLS:
+Usuario -> HTTPS -> Nginx local con override aislado -> Frontend + proxy /api/*
 ```
 
 ---
@@ -76,17 +70,17 @@ Frontend y/o backend segun arquitectura del despliegue
 
 | Alternativa | Por que no se eligio |
 |---|---|
-| Mantener HTTP en despliegues reales | No protege credenciales ni datos en transito |
-| Definir Nginx como unica opcion | No se alinea con la estrategia futura de AWS bajo costo ni con despliegues alternativos |
-| Cambiar primero el mecanismo de autenticacion y posponer TLS | No resuelve el riesgo de transporte en el corto plazo |
+| Mantener HTTP como unica opcion incluso para validacion tecnica | No permite ensayar terminacion TLS |
+| Dejar TLS autofirmado dentro del compose base | Acopla el proyecto a certificados no confiables y puertos locales |
+| Definir un unico terminador TLS fijo dentro del repo base | Mezcla necesidades de prueba local con despliegues reales |
 
 ---
 
 # Beneficios Arquitectonicos
 
-* Protege credenciales y datos en transito
-* Reduce riesgo operativo del uso actual de HTTP Basic
-* Permite adaptar la terminacion TLS al entorno real de despliegue
+* Reduce riesgo de contaminar el despliegue base con configuracion local de TLS
+* Permite validar tecnicamente HTTPS sin comprometer la configuracion principal
+* Mantiene el proyecto preparado para que el entorno real asuma terminacion TLS de forma limpia
 
 ---
 
@@ -94,22 +88,20 @@ Frontend y/o backend segun arquitectura del despliegue
 
 | Ventaja | Desventaja |
 |---|---|
-| Mejora inmediata de seguridad en despliegues reales | Requiere definir y operar certificados en el entorno elegido |
-| No acopla la decision a una sola herramienta | La implementacion concreta depende de infraestructura futura |
+| La configuracion base queda limpia y portable | La validacion TLS requiere un compose override adicional |
+| Se evita arrastrar defaults locales inseguros | La prueba local con autofirmado no representa por si sola un despliegue real |
 
 ---
 
 # Impacto en el Sistema
 
-**Frontend:** Sin cambio funcional obligatorio; cambia la forma de publicacion en entornos reales.
+**Frontend:** Mantiene un modo base HTTP local y un modo TLS separado solo para validacion.
 
-**Backend:** Debe quedar protegido detras de un punto de entrada HTTPS si se expone fuera del entorno local.
+**Backend:** Sigue detras del proxy local; no asume TLS directo desde la aplicacion.
 
-**DevOps:** Requiere definir el terminador TLS segun el entorno real de despliegue.
+**DevOps:** Debe mantener cualquier configuracion TLS de prueba fuera del compose base.
 
-**Seguridad:** Es una mejora prioritaria mientras se mantenga HTTP Basic.
-
-**Operacion local:** Cualquier validacion con certificado autofirmado debe vivir en archivos separados o perfiles locales, nunca como configuracion base de despliegue.
+**Seguridad:** Establece que la validacion local de TLS no debe confundirse con la configuracion principal del proyecto.
 
 ---
 
@@ -117,17 +109,19 @@ Frontend y/o backend segun arquitectura del despliegue
 
 * `veterinary-system-api/src/main/java/com/backend/unab/auth/SpringSecurityConfig.java`
 * `veterinary-system-api/src/main/java/com/backend/unab/controllers/AuthRestController.java`
-* `veterinary-system-portal/nginx/default.conf`
-* `veterinary-system-portal/nginx/default.local-ssl.conf`
 * `veterinary-system-portal/docker-compose.yml`
 * `veterinary-system-portal/docker-compose.local-https.yml`
+* `veterinary-system-portal/nginx/default.conf`
+* `veterinary-system-portal/nginx/default.local-ssl.conf`
+* `veterinary-system-portal/scripts/generate-local-cert.ps1`
 * `veterinary-system-portal/README.md`
 
 ---
 
 # Validacion
 
-* Confirmar que la configuracion base del proyecto no dependa de certificados autofirmados ni de `localhost:3443`
-* Confirmar que HTTP Basic sigue siendo el mecanismo actual
-* Confirmar que cualquier prueba local de TLS viva en configuracion separada del despliegue base
-* Requiere validacion antes de implementacion sobre que punto de entrada asumira TLS en el entorno real
+* Confirmar que el `docker-compose.yml` base del portal solo publica HTTP y no monta certificados
+* Confirmar que `default.conf` no declara `listen 443` ni rutas de certificado
+* Confirmar que la validacion TLS vive en `docker-compose.local-https.yml` y `default.local-ssl.conf`
+* Confirmar que HTTP Basic sigue siendo el mecanismo actual de autenticacion
+* Confirmar que la prueba local de TLS puede ejecutarse sin modificar la configuracion principal del portal
