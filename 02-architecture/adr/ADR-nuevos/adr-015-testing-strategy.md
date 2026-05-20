@@ -2,19 +2,20 @@
 
 ## Estado
 
-Requiere validacion - 2026-05-02
+Aceptado - Miercoles, 20 de mayo 2026
 
 ---
 
 # Contexto
 
-El proyecto ya cuenta con evidencia de pruebas automatizadas, pero de forma parcial y sin una estrategia consolidada documentada:
+El proyecto ya cuenta con evidencia real de pruebas automatizadas en backend y frontend:
 
 * backend con pruebas unitarias sobre servicios
-* frontend con configuracion de pruebas unitarias Angular
+* frontend con pruebas unitarias activas en Karma + Jasmine
 * frontend con estructura E2E de Protractor
+* comandos de validacion local ya ejecutables y verificados en el repositorio actual
 
-No se confirma en el proyecto actual una politica formal de cobertura ni un pipeline CI/CD operativo.
+No se adopta en este ADR una politica de cobertura obligatoria ni un pipeline CI/CD especifico, porque esos elementos no forman parte del estado actual confirmado del proyecto.
 
 ---
 
@@ -24,32 +25,40 @@ Sin una estrategia documentada de pruebas:
 
 * no hay una expectativa comun sobre que capas deben cubrirse
 * la calidad depende de decisiones individuales del equipo
-* es dificil priorizar que tipos de pruebas agregar primero
+* es dificil priorizar que tipos de pruebas mantener o ampliar primero
 
 ---
 
 # Decision Arquitectonica
 
-Requiere validacion antes de implementacion.
+Decision adoptada.
 
-Se propone adoptar una estrategia incremental de pruebas por capas, priorizando:
+Se adopta una estrategia incremental de pruebas por capas, priorizando:
 
 * pruebas unitarias de servicios backend
 * pruebas unitarias de componentes y guards frontend
-* validaciones de integracion basicas sobre endpoints criticos
-* mantenimiento o depuracion de los flujos E2E realmente utiles
+* validaciones basicas sobre endpoints y comportamientos criticos
+* mantenimiento selectivo de flujos E2E realmente utiles
 
-No se aprueban en este ADR herramientas o umbrales especificos no confirmados en el proyecto actual.
+La implementacion actual formaliza un baseline minimo de validacion local:
+
+* backend: `.\mvnw.cmd test`
+* frontend: `npm.cmd run lint`
+* frontend: `npm.cmd run test -- --watch=false --browsers=ChromeHeadless`
+* frontend: `npm.cmd run build`
+
+No se fijan en este ADR umbrales de cobertura, herramientas adicionales ni automatizacion CI/CD no confirmada en el proyecto actual.
 
 ---
 
 # Stack tecnologico
 
-| Elemento | Estado actual | Propuesta futura |
+| Elemento | Estado actual | Decision adoptada |
 |---|---|---|
-| Backend tests | JUnit 5 + Mockito via `spring-boot-starter-test` | Continuar y ampliar |
-| Frontend unit tests | Karma + Jasmine | Continuar y ampliar |
-| Frontend E2E | Protractor presente en el proyecto | Revisar utilidad real y mantener solo escenarios valiosos |
+| Backend tests | JUnit 5 + Mockito via `spring-boot-starter-test` | Mantener y ampliar |
+| Frontend unit tests | Karma + Jasmine | Mantener y ampliar |
+| Frontend E2E | Protractor presente en el proyecto | Mantener solo escenarios valiosos |
+| Baseline local | Comandos reales verificados | Validacion minima oficial |
 
 ---
 
@@ -58,7 +67,7 @@ No se aprueban en este ADR herramientas o umbrales especificos no confirmados en
 ```
 Backend services -> pruebas unitarias
 Frontend components/guards -> pruebas unitarias
-Endpoints criticos -> validacion de integracion basica
+Endpoints criticos -> validacion basica
 Flujos clave usuario -> E2E selectivo
 ```
 
@@ -68,7 +77,7 @@ Flujos clave usuario -> E2E selectivo
 
 | Alternativa | Por que no se eligio |
 |---|---|
-| No documentar estrategia | Mantiene dispersion y criterios implícitos |
+| No documentar estrategia | Mantiene dispersion y criterios implicitos |
 | Apostar solo por E2E | Aumenta costo y fragilidad para este proyecto |
 | Fijar desde ya herramientas y umbrales no presentes | No esta respaldado por evidencia actual |
 
@@ -78,7 +87,7 @@ Flujos clave usuario -> E2E selectivo
 
 * Ordena el crecimiento de pruebas sin sobredimensionar la solucion
 * Alinea pruebas con la arquitectura por capas del proyecto
-* Facilita discutir prioridades tecnicas antes de invertir en tooling adicional
+* Formaliza un baseline de calidad realmente ejecutable
 
 ---
 
@@ -86,33 +95,38 @@ Flujos clave usuario -> E2E selectivo
 
 | Ventaja | Desventaja |
 |---|---|
-| Estrategia pragmatica y compatible con el estado real del repositorio | Requiere acuerdo posterior del equipo para concretar alcance y criterios |
-| Aprovecha lo ya existente | No resuelve por si sola cobertura o automatizacion futura |
+| Estrategia pragmatica y compatible con el estado real del repositorio | No resuelve por si sola cobertura futura o CI/CD |
+| Aprovecha lo ya existente | Requiere disciplina para mantener utiles las pruebas E2E |
 
 ---
 
 # Impacto en el Sistema
 
-**Backend:** Consolidar y ampliar pruebas sobre servicios y comportamiento critico.
+**Backend:** Consolida pruebas unitarias sobre servicios como primera linea de validacion.
 
-**Frontend:** Mantener pruebas utiles y revisar el valor real de los E2E existentes.
+**Frontend:** Mantiene pruebas utiles de componentes y guards, con lint y build como parte del baseline.
 
-**Documentacion:** Debe dejar claro que hoy la estrategia es una propuesta incremental y no una politica plenamente implementada.
+**Documentacion:** Define una politica clara de validacion local sin depender de cobertura o pipelines no existentes.
 
 ---
 
 # Evidencia
 
-* `backend-unab-master/pom.xml`
-* `backend-unab-master/src/test/java/com/backend/unab/models/services/`
-* `frontend-unab-master/karma.conf.js`
-* `frontend-unab-master/e2e/`
-* `frontend-unab-master/src/app/**/*.spec.ts`
+* `veterinary-system-api/pom.xml`
+* `veterinary-system-api/src/test/java/com/backend/unab/models/services/`
+* `veterinary-system-portal/karma.conf.js`
+* `veterinary-system-portal/e2e/`
+* `veterinary-system-portal/src/app/**/*.spec.ts`
+* `veterinary-system-docs/09-testing/testing-strategy.md`
 
 ---
 
 # Validacion
 
-* Confirmar que siguen existiendo pruebas unitarias backend en `src/test`
+* Confirmar que las pruebas backend siguen existiendo en `veterinary-system-api/src/test`
 * Confirmar que el frontend mantiene configuracion de Karma/Jasmine y estructura E2E
-* Requiere validacion antes de implementacion sobre alcance, prioridad y mantenimiento de los E2E
+* Confirmar que el baseline local del proyecto pasa con:
+  * `.\mvnw.cmd test`
+  * `npm.cmd run lint`
+  * `npm.cmd run test -- --watch=false --browsers=ChromeHeadless`
+  * `npm.cmd run build`
