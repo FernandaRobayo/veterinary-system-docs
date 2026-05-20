@@ -2,15 +2,20 @@
 
 ## Estado
 
-Propuesto - 2026-05-02
+Aceptado - Miercoles, 20 de mayo 2026
 
 ---
 
 # Contexto
 
-El proyecto usa variables de entorno para base de datos y configuracion sensible en `docker-compose.yml`. Tambien existe un archivo `.env` en la raiz del proyecto con valores concretos y ese archivo esta versionado en git.
+El proyecto usa variables de entorno para base de datos y configuracion sensible en los `docker-compose.yml` de sus modulos. Antes de esta decision no existia en la raiz una plantilla comun de variables ni una guia operativa minima para separar valores reales y valores de ejemplo.
 
-No se confirma en la raiz del proyecto la existencia de `.gitignore` ni de un `.env.example`.
+La implementacion actual deja en la raiz:
+
+* `.env.example` como plantilla versionada
+* `.env` para uso local del entorno de desarrollo
+* `.gitignore` para evitar versionar `.env`
+* `README-DOCKER.md` con la guia operativa minima
 
 ---
 
@@ -26,14 +31,15 @@ Sin una politica minima de secretos:
 
 # Decision Arquitectonica
 
-Propuesta futura.
+Decision adoptada.
 
-Se propone adoptar una politica minima e inmediata de gestion de secretos:
+Se adopta una politica minima e inmediata de gestion de secretos:
 
 **Minimo obligatorio inmediato**
 
 * dejar de tratar `.env` como archivo versionable con valores operativos
-* crear `.env.example` con placeholders
+* crear `.env.example` con placeholders o valores seguros de desarrollo
+* mantener `.env` como archivo local excluido por `.gitignore`
 * definir que los valores reales deben inyectarse por ambiente y no conservarse en el repositorio
 
 **Evolucion futura opcional**
@@ -46,11 +52,11 @@ No se aprueba en este ADR una herramienta externa especifica de secretos porque 
 
 # Stack tecnologico
 
-| Elemento | Estado actual | Propuesta futura |
+| Elemento | Estado actual | Decision adoptada |
 |---|---|---|
-| Variables sensibles | `.env` en raiz + variables de entorno en Docker Compose | Plantilla `.env.example` + valores reales fuera del repositorio |
+| Variables sensibles | Variables de entorno en Docker Compose y modulos separados | Plantilla `.env.example` en raiz + `.env` local ignorado + valores reales fuera del repositorio |
 | Orquestacion local | Docker Compose | Docker Compose |
-| Gestor externo de secretos | No confirmado en el proyecto actual | Requiere validacion antes de implementacion |
+| Gestor externo de secretos | No confirmado en el proyecto actual | Queda fuera del alcance actual |
 
 ---
 
@@ -109,14 +115,20 @@ Entorno local o real
 
 * `docker-compose.yml`
 * `.env`
+* `.env.example`
+* `.gitignore`
 * `README-DOCKER.md`
-* `git ls-files .env`
+* `veterinary-system-db/.env.example`
+* `veterinary-system-db/.gitignore`
 
 ---
 
 # Validacion
 
-* Confirmar que `.env` existe en la raiz y esta versionado
-* Confirmar que no existe `.env.example` en la raiz del proyecto
-* Confirmar que no existe `.gitignore` en la raiz del proyecto
-* Requiere validacion antes de implementacion sobre el mecanismo futuro por ambiente fuera del repositorio
+* Confirmar que existe `.env` en la raiz del proyecto
+* Confirmar que existe `.env.example` en la raiz del proyecto
+* Confirmar que `.gitignore` en la raiz excluye `.env`
+* Confirmar que `README-DOCKER.md` documenta el uso seguro de variables
+* Confirmar que `docker compose` raiz sigue delegando en los modulos sin hardcodear secretos reales en documentacion
+* Confirmar que `.env` puede usarse localmente sin quedar expuesto en el repositorio
+* Confirmar que la plantilla versionada usa placeholders o valores seguros de desarrollo
