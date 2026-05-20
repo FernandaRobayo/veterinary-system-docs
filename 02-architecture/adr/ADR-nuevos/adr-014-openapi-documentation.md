@@ -2,13 +2,13 @@
 
 ## Estado
 
-Propuesto - 2026-05-02
+Aceptado - Martes, 19 de mayo 2026
 
 ---
 
 # Contexto
 
-El proyecto expone una API REST bajo `/api/*`, pero la documentacion API del repositorio es insuficiente: `docs/05-api/api-documentation.md` esta vacio y no se observa una especificacion OpenAPI generada desde el backend.
+El proyecto expone una API REST bajo `/api/*` y depende de ese contrato para el portal web. Antes de esta decision, la documentacion API del repositorio era insuficiente y no existia una especificacion OpenAPI generada desde el backend.
 
 ---
 
@@ -24,21 +24,26 @@ Sin documentacion formal de la API:
 
 # Decision Arquitectonica
 
-Propuesta futura.
+Se adopta OpenAPI 3 generado desde el backend con `springdoc-openapi` para documentar la API REST actual del proyecto.
 
-Se propone incorporar una especificacion OpenAPI 3 generada desde el backend para documentar el contrato REST actual del proyecto.
+La implementacion:
 
-Esta propuesta no depende de introducir versionado `/api/v1/*`. Debe documentar la API realmente existente mientras el sistema use rutas `/api/*`.
+* mantiene las rutas reales existentes bajo `/api/*`
+* expone documentacion navegable con Swagger UI
+* publica la especificacion generada en formato JSON y YAML
+* documenta autenticacion HTTP Basic como esquema de seguridad del contrato
+
+Esta decision no depende de introducir versionado `/api/v1/*`.
 
 ---
 
 # Stack tecnologico
 
-| Elemento | Estado actual | Propuesta futura |
-|---|---|---|
-| Contrato REST | Implicito en codigo | OpenAPI 3 |
-| Documentacion API | Archivo vacio o insuficiente | Especificacion generada desde backend |
-| Backend | Spring Boot 2.5.3 | Spring Boot 2.5.3 |
+| Elemento | Estado actual |
+|---|---|
+| Contrato REST | OpenAPI 3 generado desde backend |
+| Documentacion API | Swagger UI + `/v3/api-docs` |
+| Backend | Spring Boot 2.5.3 + springdoc-openapi |
 
 ---
 
@@ -48,10 +53,11 @@ Esta propuesta no depende de introducir versionado `/api/v1/*`. Debe documentar 
 Controladores + DTOs
         |
         v
-Especificacion OpenAPI
+springdoc-openapi
         |
-        v
-Documentacion navegable para equipo y consumo tecnico
+        +-- /v3/api-docs
+        +-- /v3/api-docs.yaml
+        +-- /swagger-ui.html
 ```
 
 ---
@@ -78,32 +84,34 @@ Documentacion navegable para equipo y consumo tecnico
 
 | Ventaja | Desventaja |
 |---|---|
-| Contrato mas claro y util para el equipo | Introduce trabajo adicional de configuracion y mantenimiento |
-| Mejor soporte para onboarding | Requiere revisar que la documentacion expuesta no se trate como funcionalidad implementada antes de tiempo |
+| Contrato mas claro y util para el equipo | Introduce dependencia adicional en el backend |
+| Mejor soporte para onboarding | Requiere mantener anotaciones y accesos de documentacion alineados con seguridad |
 
 ---
 
 # Impacto en el Sistema
 
-**Backend:** Debe exponer o generar una especificacion OpenAPI si la propuesta se implementa.
+**Backend:** Expone la especificacion OpenAPI y Swagger UI, y permite acceso publico a esos endpoints de documentacion.
 
-**Frontend:** Puede beneficiarse de una referencia formal del contrato, sin cambiar la API actual.
+**Frontend:** Puede consultar un contrato formal de referencia sin cambiar la API actual.
 
-**Documentacion:** Sustituye la dependencia de un archivo vacio o insuficiente por una fuente mas util y trazable.
+**Documentacion:** Sustituye la dependencia de un archivo vacio o inexistente por una fuente util y trazable.
 
 ---
 
 # Evidencia
 
-* `docs/05-api/api-documentation.md`
-* `backend-unab-master/src/main/java/com/backend/unab/controllers/`
-* `backend-unab-master/src/main/java/com/backend/unab/dto/`
-* `backend-unab-master/pom.xml`
+* `veterinary-system-api/pom.xml`
+* `veterinary-system-api/src/main/java/com/backend/unab/config/OpenApiConfig.java`
+* `veterinary-system-api/src/main/java/com/backend/unab/auth/SpringSecurityConfig.java`
+* `veterinary-system-api/src/main/java/com/backend/unab/controllers/`
+* `veterinary-system-docs/06-api/api-documentation.md`
 
 ---
 
 # Validacion
 
-* Confirmar que la API actual sigue exponiendose bajo `/api/*`
-* Confirmar que `docs/05-api/api-documentation.md` sigue siendo insuficiente o vacio
-* Requiere validacion antes de implementacion sobre la herramienta exacta a usar para generar OpenAPI
+* Confirmar que la API sigue exponiendose bajo `/api/*`
+* Confirmar que `http://localhost:9090/swagger-ui.html` carga la documentacion navegable
+* Confirmar que `http://localhost:9090/v3/api-docs` expone la especificacion OpenAPI
+* Confirmar que las pruebas del backend siguen pasando despues de incorporar `springdoc-openapi`
